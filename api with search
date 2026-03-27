@@ -1,0 +1,196 @@
+//main
+
+package com.example.test1
+
+import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.widget.EditText
+import android.widget.TextView
+import androidx.appcompat.app.AppCompatActivity
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+import okhttp3.*
+import java.io.IOException
+
+// --- 數據模型 ---
+// --- 主程式 ---
+class MainActivity : AppCompatActivity() {
+
+    private lateinit var recyclerView: RecyclerView
+    private lateinit var etSearch: EditText
+    private lateinit var userAdapter: UserAdapter
+
+    // 用於存放從 API 獲取的原始完整列表
+    private var fullUserList: List<User> = listOf()
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_main)
+
+        recyclerView = findViewById(R.id.recyclerView)
+        etSearch = findViewById(R.id.etSearch)
+
+        // 設置橫向佈局 (HORIZONTAL)
+        recyclerView.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
+
+        // 初始化 Adapter 並綁定
+        userAdapter = UserAdapter(mutableListOf())
+        recyclerView.adapter = userAdapter
+
+        // 加入搜尋監聽
+        etSearch.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                // 執行過濾邏輯
+                filterList(s.toString())
+            }
+            override fun afterTextChanged(s: Editable?) {}
+        })
+
+        fetchUserData()
+    }
+
+    private fun fetchUserData() {
+        val client = OkHttpClient()
+        val request = Request.Builder()
+            .url("https://jsonplaceholder.org/users")
+            .build()
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                e.printStackTrace()
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                val jsonString = response.body?.string()
+                if (jsonString != null) {
+                    val userType = object : TypeToken<List<User>>() {}.type
+                    // 將結果存入原始列表
+                    fullUserList = Gson().fromJson(jsonString, userType)
+
+                    runOnUiThread {
+                        // 初始化顯示所有用戶
+                        userAdapter.updateData(fullUserList)
+                    }
+                }
+            }
+        })
+    }
+
+    // 搜尋過濾邏輯
+    private fun filterList(query: String) {
+        val filteredList = fullUserList.filter {
+            it.firstname.contains(query, ignoreCase = true) ||
+                    it.lastname.contains(query, ignoreCase = true)
+        }
+        userAdapter.updateData(filteredList)
+    }
+}
+
+
+=================================================================================
+
+//UserAdopter
+
+package com.example.test1
+
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.widget.TextView
+import androidx.recyclerview.widget.RecyclerView
+
+// 統一建構子參數名稱為 displayList
+class UserAdapter(private var displayList: List<User>) :
+    RecyclerView.Adapter<UserAdapter.UserViewHolder>() {
+
+    class UserViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+        val tvName: TextView = view.findViewById(R.id.tvName)
+        val tvEmail: TextView = view.findViewById(R.id.tvEmail)
+        val tvCompany: TextView = view.findViewById(R.id.tvCompany)
+    }
+
+    // --- 這裡整合為一個更新方法即可 ---
+    // 無論是第一次拿數據還是搜尋過濾，都呼叫這個方法
+    fun updateData(newList: List<User>) {
+        this.displayList = newList
+        notifyDataSetChanged() // 通知數據已改變，刷新畫面
+    }
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): UserViewHolder {
+        val view = LayoutInflater.from(parent.context)
+            .inflate(R.layout.item_user_card, parent, false)
+        return UserViewHolder(view)
+    }
+
+    override fun onBindViewHolder(holder: UserViewHolder, position: Int) {
+        val user = displayList[position]
+        holder.tvName.text = "${user.firstname} ${user.lastname}"
+        holder.tvEmail.text = user.email
+        holder.tvCompany.text = "🏢 ${user.company.name}"
+    }
+
+    override fun getItemCount() = displayList.size
+}
+
+
+=================================================================================
+
+//xml
+
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#F5F5F5"
+    tools:context=".MainActivity">
+
+
+
+    <TextView
+        android:id="@+id/tvTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="24dp"
+        android:text="用戶列表 (橫向滑動)"
+        android:textColor="#333333"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+
+    <EditText
+        android:id="@+id/etSearch"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="16dp"
+        android:hint="搜尋用戶名字 (例如: J)..."
+        android:padding="12dp"
+        android:background="@android:drawable/editbox_background"
+        app:layout_constraintTop_toBottomOf="@+id/tvTitle" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="92dp"
+        android:clipToPadding="false"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/tvTitle" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>
