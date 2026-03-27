@@ -1,0 +1,125 @@
+
+//remember import
+
+import okhttp3.*
+import java.io.IOException
+
+//build.gradle.kts app
+    implementation("com.google.android.material:material:1.12.0")
+    implementation("com.squareup.okhttp3:okhttp:4.9.0")
+    implementation("com.google.code.gson:gson:2.8.6")
+    implementation("io.coil-kt:coil:2.4.0")
+
+//android manifest.xml
+
+<uses-permission android:name="android.permission.INTERNET" />
+
+..before application
+
+===================================================================================================
+
+
+//UserAdopter.kt
+
+package com.example.test1
+
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.widget.TextView
+import androidx.recyclerview.widget.RecyclerView
+
+class UserAdapter(private val userList: List<User>) :
+    RecyclerView.Adapter<UserAdapter.UserViewHolder>() {
+
+    // 內部類別：連結 XML 裡的元件
+    class UserViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+        val tvName: TextView = view.findViewById(R.id.tvName)
+        val tvEmail: TextView = view.findViewById(R.id.tvEmail)
+        val tvCompany: TextView = view.findViewById(R.id.tvCompany)
+    }
+
+    // 建立畫面
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): UserViewHolder {
+        val view = LayoutInflater.from(parent.context)
+            .inflate(R.layout.item_user_card, parent, false)
+        return UserViewHolder(view)
+    }
+
+    // 綁定數據
+    override fun onBindViewHolder(holder: UserViewHolder, position: Int) {
+        val user = userList[position]
+        holder.tvName.text = "${user.firstname} ${user.lastname}"
+        holder.tvEmail.text = user.email
+        holder.tvCompany.text = "🏢 ${user.company.name}"
+    }
+
+    override fun getItemCount() = userList.size
+}
+
+================================================================================================
+
+//user.kt
+
+package com.example.test1
+
+data class User(
+    val id: Int,
+    val firstname: String,
+    val lastname: String,
+    val email: String,
+    val company: Company
+)
+
+data class Company(
+    val name: String
+)
+
+===============================================================================================
+
+//activity
+
+class MainActivity : AppCompatActivity() {
+
+    private lateinit var recyclerView: RecyclerView
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_main)
+
+        recyclerView = findViewById(R.id.recyclerView)
+
+        // 設置橫向佈局
+        recyclerView.layoutManager = LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false)
+
+        fetchUserData()
+    }
+
+    private fun fetchUserData() {
+        val client = OkHttpClient()
+        val request = Request.Builder()
+            .url("https://jsonplaceholder.org/users")
+            .build()
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                e.printStackTrace()
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                val jsonString = response.body?.string()
+                if (jsonString != null) {
+                    // 解析 JSON
+                    val userType = object : TypeToken<List<User>>() {}.type
+                    val users: List<User> = Gson().fromJson(jsonString, userType)
+
+                    // 回到主線程更新
+                    runOnUiThread {
+                        recyclerView.adapter = UserAdapter(users)
+                    }
+                }
+            }
+        })
+    }
+}
+
