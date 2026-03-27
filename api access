@@ -123,3 +123,50 @@ class MainActivity : AppCompatActivity() {
     }
 }
 
+===============================================================================================
+
+1. 嚴格遵守「線程分離」原則 (Threading)
+這是新手最常遇到的崩潰原因。Android 不允許在「主線程 (Main Thread)」發送網絡請求，也不允許在「背景線程 (Background Thread)」更新 UI。
+
+錯誤做法：直接在 onCreate 裡寫 response.body 並賦值給 textView。
+
+正確做法：使用 OkHttp 的 enqueue（這會自動開背景線程），得到結果後，必須包裹在 runOnUiThread { ... } 裡面再操作 RecyclerView。
+
+2. JSON 與 Kotlin 類別要「精確對應」
+使用 Gson 時，你的 Data Class 屬性名稱必須和 JSON 裡的 Key 完全一致。
+
+技巧：如果你覺得 API 給的名稱很難看（例如 first_name_in_system），你可以使用 @SerializedName：
+
+Kotlin
+data class User(
+    @SerializedName("firstname") val name: String // JSON 叫 firstname，但在程式碼裡我想叫 name
+)
+工具建議：在 Android Studio 下載 "JSON To Kotlin Class" 插件，貼上 JSON 就能自動生成所有 Data Class，省去手寫報錯的風險。
+
+3. 永遠要處理「失敗的情況」 (Error Handling)
+網絡請求不一定每次都成功（可能沒網、伺服器掛了、網址打錯）。
+
+onFailure：這裡要處理「連不上伺服器」的情況（如手機斷網）。
+
+onResponse：即使進入了這個方法，也不代表數據是對的。要檢查 if (response.isSuccessful)。
+
+Tips：給用戶一個 Toast 提示，或者顯示一個「加載失敗」的圖片，比 App 直接沒反應要好得多。
+
+4. 善用「攔截器」檢查數據 (Logging)
+當你發現數據拿不到時，別盲目猜測。在 OkHttpClient 中加入 HttpLoggingInterceptor，它會在 Logcat 裡印出所有傳輸的數據細節。
+
+註：這雖然不在你目前的 PDF 課本中，但這是工程師 debug 的標配。
+
+5. 圖片加載不要自己寫 (Use Coil/Glide)
+正如你第 9 課提到的，API 通常只會給你一個圖片網址（URL 字串）。
+
+不要嘗試用原生代碼把 URL 轉成 Bitmap，那會非常耗電且容易造成內存溢出 (OOM)。
+
+直接用 Coil：imageView.load(user.avatarUrl)。它會自動處理緩存（下次打開不用重新下載）和圓角轉換。
+
+6. 安全性：不要硬編碼 API Key
+如果你之後用到需要密鑰的 API（例如 Google Maps 或天氣 API）：
+
+不要直接寫在代碼裡。
+
+做法：將 Key 放在 local.properties 文件中，並在 build.gradle 裡引用它。這樣當你把代碼上傳到 GitHub 時，別人就不會偷走你的 API Key。
