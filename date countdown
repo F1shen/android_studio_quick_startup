@@ -1,0 +1,70 @@
+import android.os.Bundle
+import android.os.CountDownTimer
+import android.widget.TextView
+import androidx.appcompat.app.AppCompatActivity
+import java.text.SimpleDateFormat
+import java.util.*
+import java.util.concurrent.TimeUnit
+
+class MainActivity : AppCompatActivity() {
+
+    private lateinit var tvCountdown: TextView
+    private var countDownTimer: CountDownTimer? = null
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_main)
+
+        tvCountdown = findViewById(R.id.tv_countdown)
+        
+        startCountdown()
+    }
+
+    private fun startCountdown() {
+        // Define the target date (e.g., March 28, 2026, 2:00 PM CST)
+        val endDateDay = "28/03/2026 14:00:00"
+        val format = SimpleDateFormat("dd/MM/yyyy hh:mm:ss", Locale.getDefault())
+        
+        try {
+            val endDate = format.parse(endDateDay)
+            val currentTime = Calendar.getInstance().time
+            var different = endDate.time - currentTime.time
+
+            if (different > 0) {
+                countDownTimer = object : CountDownTimer(different, 1000) {
+                    override fun onTick(millisUntilFinished: Long) {
+                        var diff = millisUntilFinished
+                        val days = TimeUnit.MILLISECONDS.toDays(diff)
+                        diff %= TimeUnit.DAYS.toMillis(days)
+                        val hours = TimeUnit.MILLISECONDS.toHours(diff)
+                        diff %= TimeUnit.HOURS.toMillis(hours)
+                        val minutes = TimeUnit.MILLISECONDS.toMinutes(diff)
+                        diff %= TimeUnit.MINUTES.toMillis(minutes)
+                        val seconds = TimeUnit.MILLISECONDS.toSeconds(diff)
+
+                        tvCountdown.text = String.format(
+                            Locale.getDefault(),
+                            "%d Days, %d Hours, %d Minutes, %d Seconds remaining",
+                            days, hours, minutes, seconds
+                        )
+                    }
+
+                    override fun onFinish() {
+                        tvCountdown.text = "The event is here!"
+                    }
+                }.start() // Start the timer
+            } else {
+                tvCountdown.text = "The event date has passed."
+            }
+
+        } catch (e: Exception) {
+            e.printStackTrace()
+            tvCountdown.text = "Error setting the date."
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        countDownTimer?.cancel() // Always cancel the timer to prevent memory leaks
+    }
+}
